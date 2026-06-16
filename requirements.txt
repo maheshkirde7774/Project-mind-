@@ -2,3 +2,4 @@ Flask==3.0.3
 Flask-SocketIO==5.3.6
 google-genai
 gunicorn==22.0.0
+flask-login 

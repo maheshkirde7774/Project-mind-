@@ -21,16 +21,19 @@
         
         body { background-color: var(--bg-color); color: var(--text-main); display: flex; justify-content: center; align-items: center; height: 100vh; padding: 20px; }
         
-        .chat-container { width: 100%; max-width: 800px; height: 85vh; background: var(--panel-bg); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3); border: 1px solid #334155; }
+        .chat-container { width: 100%; max-width: 800px; height: 85vh; background: var(--panel-bg); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); border: 1px solid #334155; }
         
         .chat-header { background: #1e293b; padding: 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; }
         .header-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; color: var(--text-main); }
         .status-dot { width: 8px; height: 8px; background-color: var(--accent-green); border-radius: 50%; box-shadow: 0 0 8px var(--accent-green); }
+        
+        .header-right { display: flex; gap: 15px; align-items: center; }
         .user-tag { font-size: 14px; background: #334155; padding: 4px 12px; border-radius: 20px; color: var(--text-muted); }
+        .logout-btn { color: #ef4444; text-decoration: none; font-size: 14px; font-weight: 600; }
+        .logout-btn:hover { text-decoration: underline; }
 
         #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; background-image: radial-gradient(#334155 1px, transparent 1px); background-size: 20px 20px; }
         
-        /* Message Box Styling */
         .msg-wrapper { display: flex; flex-direction: column; max-width: 75%; animation: slideIn 0.2s ease-out forwards; }
         .msg-wrapper.user-side { align-self: flex-end; }
         .msg-wrapper.ai-side { align-self: flex-start; }
@@ -45,17 +48,14 @@
 
         .msg-time { font-size: 10px; color: var(--text-muted); margin-top: 4px; text-align: right; }
 
-        /* Input Panel */
         .input-area { padding: 16px 20px; background: #1e293b; display: flex; gap: 12px; align-items: center; border-top: 1px solid #334155; }
-        #message-input { flex: 1; background: #0f172a; border: 1px solid #334155; padding: 14px 20px; border-radius: 30px; color: var(--text-main); font-size: 15px; outline: none; transition: border 0.2s; }
+        #message-input { flex: 1; background: #0f172a; border: 1px solid #334155; padding: 14px 20px; border-radius: 30px; color: var(--text-main); font-size: 15px; outline: none; }
         #message-input:focus { border-color: var(--accent-blue); }
         
-        #send-btn { background: var(--accent-blue); color: white; border: none; padding: 0 24px; height: 46px; border-radius: 30px; cursor: pointer; font-weight: 600; font-size: 15px; transition: transform 0.1s, background 0.2s; }
-        #send-btn:hover { background: #2563eb; transform: scale(1.02); }
-        #send-btn:active { transform: scale(0.98); }
+        #send-btn { background: var(--accent-blue); color: white; border: none; padding: 0 24px; height: 46px; border-radius: 30px; cursor: pointer; font-weight: 600; font-size: 15px; transition: background 0.2s; }
+        #send-btn:hover { background: #2563eb; }
 
-        /* Typing Indicator CSS Animation */
-        .typing-bubble { display: none; align-self: flex-start; background: #1e293b; padding: 12px 18px; border-radius: 14px; border-bottom-left-radius: 2px; margin-bottom: 10px; animation: slideIn 0.2s ease-out; }
+        .typing-bubble { display: none; align-self: flex-start; background: #1e293b; padding: 12px 18px; border-radius: 14px; border-bottom-left-radius: 2px; margin-bottom: 10px; }
         .dots-container { display: flex; gap: 5px; align-items: center; height: 15px; }
         .dot { width: 7px; height: 7px; background: var(--text-muted); border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
         .dot:nth-child(1) { animation-delay: -0.32s; }
@@ -64,9 +64,7 @@
         @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
 
-        /* Scrollbar customizing */
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
 </head>
@@ -78,7 +76,10 @@
             <div class="status-dot"></div>
             <span>MIND AI Workspace</span>
         </div>
-        <div class="user-tag" id="profile-tag">Connecting...</div>
+        <div class="header-right">
+            <div class="user-tag" id="profile-tag">Connecting...</div>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
     </div>
     
     <div id="chat-box"></div>
@@ -98,8 +99,8 @@
 </div>
 
 <script>
-    let inputName = prompt("Please enter your name:", "Mahesh");
-    let username = (inputName && inputName.trim() !== "") ? inputName : "User_" + Math.floor(Math.random() * 100);
+    // Directly inject user data from Flask session variables
+    let username = "{{ username }}"; 
     document.getElementById('profile-tag').innerText = "👤 " + username;
 
     const socket = io();
@@ -141,14 +142,12 @@
     });
 
     socket.on('message', function(data) {
-        // AI message aane par typing indicator chupa do
         if (data.username === '🤖 AI Assistant') {
             typingIndicator.style.display = 'none';
         }
         appendMessage(data);
     });
 
-    // Listen for server typing trigger
     socket.on('ai_typing', function(status) {
         if (status === 'start') {
             typingIndicator.style.display = 'block';
