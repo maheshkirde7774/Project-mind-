@@ -3,31 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Startup Chat Room</title>
+    <title>MIND - Premium AI Workspace</title>
     <script src="https://unpkg.com/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #e5ddd5; }
-        .chat-container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow: hidden; }
-        .chat-header { background: #075e54; color: white; padding: 15px; font-size: 18px; font-weight: bold; }
-        #chat-box { height: 400px; overflow-y: auto; padding: 15px; background: #f0f0f0; display: flex; flex-direction: column; }
-        .msg-container { margin-bottom: 12px; padding: 8px 12px; border-radius: 8px; max-width: 75%; width: fit-content; word-wrap: break-word; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
-        .msg-sender { font-size: 12px; font-weight: bold; color: #35a084; margin-bottom: 3px; }
-        .msg-text { font-size: 15px; color: #000; white-space: pre-wrap; }
-        .msg-time { font-size: 10px; color: #777; text-align: right; margin-top: 4px; }
-        .input-area { display: flex; padding: 10px; background: #f0f0f0; border-top: 1px solid #ddd; }
-        #message-input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 20px; outline: none; padding-left: 15px; }
-        #send-btn { background: #075e54; color: white; border: none; padding: 0 20px; margin-left: 10px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-        #send-btn:hover { background: #128c7e; }
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-green: #10b981;
+            --accent-blue: #3b82f6;
+            --user-msg: #334155;
+            --ai-msg: #064e3b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        body { background-color: var(--bg-color); color: var(--text-main); display: flex; justify-content: center; align-items: center; height: 100vh; padding: 20px; }
+        
+        .chat-container { width: 100%; max-width: 800px; height: 85vh; background: var(--panel-bg); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3); border: 1px solid #334155; }
+        
+        .chat-header { background: #1e293b; padding: 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; }
+        .header-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; color: var(--text-main); }
+        .status-dot { width: 8px; height: 8px; background-color: var(--accent-green); border-radius: 50%; box-shadow: 0 0 8px var(--accent-green); }
+        .user-tag { font-size: 14px; background: #334155; padding: 4px 12px; border-radius: 20px; color: var(--text-muted); }
+
+        #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; background-image: radial-gradient(#334155 1px, transparent 1px); background-size: 20px 20px; }
+        
+        /* Message Box Styling */
+        .msg-wrapper { display: flex; flex-direction: column; max-width: 75%; animation: slideIn 0.2s ease-out forwards; }
+        .msg-wrapper.user-side { align-self: flex-end; }
+        .msg-wrapper.ai-side { align-self: flex-start; }
+
+        .msg-sender { font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--text-muted); padding-left: 4px; }
+        .user-side .msg-sender { text-align: right; padding-right: 4px; color: var(--accent-blue); }
+        .ai-side .msg-sender { color: var(--accent-green); }
+
+        .msg-card { padding: 12px 16px; border-radius: 14px; font-size: 15px; line-height: 1.5; word-wrap: break-word; }
+        .user-side .msg-card { background: var(--user-msg); color: var(--text-main); border-bottom-right-radius: 2px; }
+        .ai-side .msg-card { background: var(--ai-msg); color: #ecfdf5; border-bottom-left-radius: 2px; border-left: 4px solid var(--accent-green); }
+
+        .msg-time { font-size: 10px; color: var(--text-muted); margin-top: 4px; text-align: right; }
+
+        /* Input Panel */
+        .input-area { padding: 16px 20px; background: #1e293b; display: flex; gap: 12px; align-items: center; border-top: 1px solid #334155; }
+        #message-input { flex: 1; background: #0f172a; border: 1px solid #334155; padding: 14px 20px; border-radius: 30px; color: var(--text-main); font-size: 15px; outline: none; transition: border 0.2s; }
+        #message-input:focus { border-color: var(--accent-blue); }
+        
+        #send-btn { background: var(--accent-blue); color: white; border: none; padding: 0 24px; height: 46px; border-radius: 30px; cursor: pointer; font-weight: 600; font-size: 15px; transition: transform 0.1s, background 0.2s; }
+        #send-btn:hover { background: #2563eb; transform: scale(1.02); }
+        #send-btn:active { transform: scale(0.98); }
+
+        /* Typing Indicator CSS Animation */
+        .typing-bubble { display: none; align-self: flex-start; background: #1e293b; padding: 12px 18px; border-radius: 14px; border-bottom-left-radius: 2px; margin-bottom: 10px; animation: slideIn 0.2s ease-out; }
+        .dots-container { display: flex; gap: 5px; align-items: center; height: 15px; }
+        .dot { width: 7px; height: 7px; background: var(--text-muted); border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
+
+        /* Scrollbar customizing */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
 </head>
 <body>
 
 <div class="chat-container">
-    <div class="chat-header">Project Chat Room with DB</div>
+    <div class="chat-header">
+        <div class="header-title">
+            <div class="status-dot"></div>
+            <span>MIND AI Workspace</span>
+        </div>
+        <div class="user-tag" id="profile-tag">Connecting...</div>
+    </div>
+    
     <div id="chat-box"></div>
+
+    <div class="typing-bubble" id="ai-typing-indicator">
+        <div class="dots-container">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+        </div>
+    </div>
     
     <div class="input-area">
-        <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
+        <input type="text" id="message-input" placeholder="Ask anything, or use @ai to call Gemini..." autocomplete="off">
         <button id="send-btn">Send</button>
     </div>
 </div>
@@ -35,51 +100,62 @@
 <script>
     let inputName = prompt("Please enter your name:", "Mahesh");
     let username = (inputName && inputName.trim() !== "") ? inputName : "User_" + Math.floor(Math.random() * 100);
+    document.getElementById('profile-tag').innerText = "👤 " + username;
 
     const socket = io();
     const chatBox = document.getElementById('chat-box');
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
+    const typingIndicator = document.getElementById('ai-typing-indicator');
 
-    // Helper function to append message inside the UI
     function appendMessage(data) {
-        const msgContainer = document.createElement('div');
-        msgContainer.classList.add('msg-container');
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('msg-wrapper');
 
         if (data.username === '🤖 AI Assistant') {
-            msgContainer.style.background = "#d1e7dd";
-            msgContainer.style.borderLeft = "4px solid #0f5132";
+            wrapper.classList.add('ai-side');
         } else {
-            msgContainer.style.background = "#ffffff";
+            wrapper.classList.add('user-side');
         }
 
-        // Clean Markdown bold parsing filter
         let formattedText = data.text;
         if (typeof formattedText === 'string') {
             formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         }
 
-        msgContainer.innerHTML = `
+        wrapper.innerHTML = `
             <div class="msg-sender">${data.username}</div>
-            <div class="msg-text">${formattedText}</div>
+            <div class="msg-card">${formattedText}</div>
             <div class="msg-time">${data.time}</div>
         `;
         
-        chatBox.appendChild(msgContainer);
+        chatBox.appendChild(wrapper);
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // Load full history database records on connection initialization
     socket.on('load_history', function(history) {
-        chatBox.innerHTML = ""; // Clear current view
+        chatBox.innerHTML = "";
         history.forEach(function(msg) {
             appendMessage(msg);
         });
     });
 
-    // Listen for live single messages
     socket.on('message', function(data) {
+        // AI message aane par typing indicator chupa do
+        if (data.username === '🤖 AI Assistant') {
+            typingIndicator.style.display = 'none';
+        }
         appendMessage(data);
+    });
+
+    // Listen for server typing trigger
+    socket.on('ai_typing', function(status) {
+        if (status === 'start') {
+            typingIndicator.style.display = 'block';
+            chatBox.scrollTop = chatBox.scrollHeight;
+        } else {
+            typingIndicator.style.display = 'none';
+        }
     });
 
     function sendMessage() {
@@ -100,9 +176,7 @@
 
     sendBtn.addEventListener('click', sendMessage);
     messageInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            sendMessage();
-        }
+        if (e.key === 'Enter') sendMessage();
     });
 </script>
 </body>
