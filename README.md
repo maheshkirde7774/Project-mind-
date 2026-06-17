@@ -43,3 +43,14 @@ MIND AI Workspace is a premium, real-time multi-room collaborative platform desi
 ```bash
 git clone [https://github.com/yourusername/MIND-AI-Workspace.git](https://github.com/yourusername/MIND-AI-Workspace.git)
 cd MIND-AI-Workspace
+
+
+MIND-AI-Workspace/
+├── templates/
+│   ├── index.html        # Main Premium Cyberpunk Workspace Dashboard Interface
+│   ├── login.html        # User Login Authentication Interface
+│   └── signup.html       # Account Registration Interface
+├── app.py                # Main System Engine (DB Initialization, Socket Logic & Gemini Parsing)
+├── chat_history.db       # Relational Database Storage (Auto-generated on engine boot)
+├── requirements.txt      # Python Environment Project Configuration Modules
+└── README.md             # Project Architectural Documentation Master File
