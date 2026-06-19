@@ -20,6 +20,9 @@ client = genai.Client()
 DATABASE_FILE = 'chat_history.db'
 session_user_map = {}
 
+# Dynamic in-memory cluster to hold live pad states per room channel
+shared_pads = {}
+
 class User(UserMixin):
     def __init__(self, id, username, is_online=0):
         self.id = id
@@ -86,26 +89,24 @@ def update_user_status(user_id, status_code):
 
 init_db()
 
-# ================= NEW ANALYTICS API ENDPOINT =================
+# ================= WORKSPACE ANALYTICS API ENDPOINT =================
 @app.route('/api/analytics')
 @login_required
 def get_analytics():
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     
-    # 1. Quick counter aggregates
     cursor.execute("SELECT COUNT(*) FROM users")
     total_users = cursor.fetchone()[0]
     
     cursor.execute("SELECT COUNT(*) FROM messages")
     total_messages = cursor.fetchone()[0]
     
-    cursor.execute("SELECT COUNT(*) FROM messages WHERE username = '🤖 AI Assistant'")
+    cursor.execute("SELECT COUNT(*) FROM messages WHERE username LIKE '%AI%'")
     ai_messages = cursor.fetchone()[0]
     
     human_messages = total_messages - ai_messages
     
-    # 2. Channel message breakdowns
     cursor.execute("""
         SELECT r.name, COUNT(m.id) FROM rooms r 
         LEFT JOIN messages m ON r.id = m.room_id 
@@ -115,11 +116,9 @@ def get_analytics():
     channels = [row[0] for row in channel_data]
     channel_counts = [row[1] for row in channel_data]
     
-    # 3. Direct messaging traffic count
     cursor.execute("SELECT COUNT(*) FROM messages WHERE receiver_id IS NOT NULL")
     private_dm_count = cursor.fetchone()[0]
     
-    # Append private messaging log into charts seamlessly
     channels.append("Private DMs")
     channel_counts.append(private_dm_count)
     
@@ -134,6 +133,7 @@ def get_analytics():
         'channel_counts': channel_counts
     })
 
+# ================= HTTP ROUTES =================
 @app.route('/')
 @login_required
 def index():
@@ -231,6 +231,66 @@ def on_join(data):
     
     history = [{'username': r[0], 'text': r[1], 'time': r[2]} for r in rows]
     emit('load_history', history)
+    
+    current_pad_text = shared_pads.get(session_room, "// Welcome to MIND AI Code Sandbox.\n// Start collaborating live here...")
+    emit('sync_editor_pad', {'text': current_pad_text})
+
+@socketio.on('code_type_sync')
+def handle_code_sync(data):
+    room_type = data.get('room_type')
+    target_id = data.get('target_id')
+    raw_text = data.get('text')
+    
+    if room_type == 'public':
+        session_room = f"room_{target_id}"
+    else:
+        session_room = f"dm_{min(int(current_user.id), int(target_id))}_{max(int(current_user.id), int(target_id))}"
+        
+    shared_pads[session_room] = raw_text
+    emit('code_type_sync', {'text': raw_text}, to=session_room, include_self=False)
+
+@socketio.on('ai_optimize_code')
+def handle_ai_code_optimization(data):
+    room_type = data.get('room_type')
+    target_id = data.get('target_id')
+    code_content = data.get('text', '').strip()
+    current_time = data.get('time', '')
+    
+    if room_type == 'public':
+        session_room = f"room_{target_id}"
+    else:
+        session_room = f"dm_{min(int(current_user.id), int(target_id))}_{max(int(current_user.id), int(target_id))}"
+        
+    if not code_content:
+        return
+        
+    emit('ai_typing', 'start', to=session_room)
+    
+    system_instruction = (
+        "You are the MIND AI Code Optimization Expert. "
+        "Analyze the provided code snippets or text framework. "
+        "Identify runtime bugs, structural flaws, and performance bottlenecks. "
+        "Strictly output your response using clear bold headings (###), highly detailed bullet points (•), and optimized code segments wrapped in syntax code blocks. "
+        "Do not write monolithic prose or long paragraphs."
+    )
+    
+    prompt = f"{system_instruction}\n\nReview and Optimize this Source Code:\n```\n{code_content}\n'''\n"
+    
+    try:
+        response = client.models.generate_content(model='gemini-2.5-flash', contents=[prompt])
+        ai_response_text = response.text.replace('\n', '<br>')
+    except Exception as e:
+        ai_response_text = f"**Code Optimizer Log Failure:**<br>• Engine processing anomaly.<br>• Technical info: {str(e)}"
+        
+    ai_data = {'username': '🤖 AI Code Optimizer', 'text': ai_response_text, 'time': current_time}
+    
+    if room_type == 'public':
+        save_message('🤖 AI Code Optimizer', ai_response_text, current_time, room_id=target_id)
+    else:
+        save_message('🤖 AI Code Optimizer', ai_response_text, current_time, receiver_id=target_id)
+        
+    emit('message', ai_data, to=session_room)
+    emit('refresh_analytics_trigger', {}, broadcast=True)
 
 @socketio.on('message')
 def handle_message(data):
@@ -265,7 +325,6 @@ def handle_message(data):
         save_message(username, display_text, current_time, receiver_id=target_id)
         
     emit('message', data, to=session_room)
-    # Broadcast global metrics update hook to instantly refresh active visual dashboards
     emit('refresh_analytics_trigger', {}, broadcast=True)
     
     if message_text.startswith('@ai'):
@@ -303,12 +362,8 @@ def handle_message(data):
         contents_payload.append(final_prompt)
         
         try:
-            response = client.models.generate_content(
-                model='gemini-2.5-flash', 
-                contents=contents_payload
-            )
-            ai_response_text = response.text
-            ai_response_text = ai_response_text.replace('\n', '<br>')
+            response = client.models.generate_content(model='gemini-2.5-flash', contents=contents_payload)
+            ai_response_text = response.text.replace('\n', '<br>')
         except Exception as e:
             ai_response_text = f"**Error Context Execution Block:**<br>• Unsupported or heavily encrypted content matrix.<br>• Logs: {str(e)}"
             
@@ -320,7 +375,6 @@ def handle_message(data):
             save_message('🤖 AI Assistant', ai_response_text, current_time, receiver_id=target_id)
             
         emit('message', ai_data, to=session_room)
-        # Broadcast secondary update after AI logs response stream
         emit('refresh_analytics_trigger', {}, broadcast=True)
 
 if __name__ == '__main__':

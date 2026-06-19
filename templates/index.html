@@ -31,12 +31,13 @@
 
         /* ================= SIDEBAR ================= */
         .sidebar {
-            width: 300px;
+            width: 260px;
             background: #161925;
             border-right: 1px solid #23283d;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            flex-shrink: 0;
         }
 
         .sidebar-header {
@@ -48,7 +49,7 @@
         }
 
         .sidebar-header h2 {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
             background: linear-gradient(45deg, #00f2fe, #4facfe);
             -webkit-background-clip: text;
@@ -111,16 +112,11 @@
         }
 
         .analytics-trigger-btn {
-            background: rgba(56, 189, 248, 0.1);
+            background: rgba(56, 189, 248, 0.08);
             color: #38bdf8;
-            border: 1px dashed rgba(56, 189, 248, 0.4);
+            border: 1px dashed rgba(56, 189, 248, 0.3);
             margin-bottom: 12px;
             font-weight: 600;
-        }
-
-        .analytics-trigger-btn:hover {
-            background: rgba(56, 189, 248, 0.2);
-            color: #00f2fe;
         }
 
         .status-dot {
@@ -129,7 +125,6 @@
             background-color: #64748b;
             border-radius: 50%;
             display: inline-block;
-            transition: background-color 0.3s;
         }
 
         .status-dot.online {
@@ -153,8 +148,8 @@
         }
 
         .user-avatar {
-            width: 36px;
-            height: 36px;
+            width: 32px;
+            height: 32px;
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             color: #0f111a;
             border-radius: 50%;
@@ -162,21 +157,23 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
+            font-size: 13px;
         }
 
         .logout-btn {
             color: #ef4444;
             text-decoration: none;
-            font-size: 14px;
+            font-size: 13px;
         }
 
-        /* ================= CHAT COMPONENT ================= */
+        /* ================= CENTRAL MAIN CHAT REGION ================= */
         .chat-area {
             flex: 1;
             display: flex;
             flex-direction: column;
             background-color: #0f111a;
             position: relative;
+            border-right: 1px solid #23283d;
         }
 
         .chat-header {
@@ -186,11 +183,6 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-        }
-
-        .chat-target-info h3 {
-            font-size: 16px;
-            color: #f1f5f9;
         }
 
         .messages-container {
@@ -205,7 +197,7 @@
         .message-row {
             display: flex;
             flex-direction: column;
-            max-width: 75%;
+            max-width: 85%;
             width: fit-content;
         }
 
@@ -215,10 +207,9 @@
         }
 
         .message-meta {
-            font-size: 12px;
+            font-size: 11px;
             color: #64748b;
             margin-bottom: 4px;
-            margin-left: 6px;
         }
 
         .message-bubble {
@@ -228,7 +219,7 @@
             border-radius: 12px;
             border-top-left-radius: 2px;
             line-height: 1.6;
-            font-size: 15px;
+            font-size: 14px;
         }
 
         .message-row.self .message-bubble {
@@ -242,15 +233,6 @@
         .message-row.ai .message-bubble {
             background-color: rgba(56, 189, 248, 0.05);
             border: 1px solid rgba(56, 189, 248, 0.15);
-            color: #e2e8f0;
-            border-radius: 12px;
-        }
-
-        .message-bubble img {
-            max-width: 250px;
-            border-radius: 8px;
-            display: block;
-            margin-bottom: 8px;
         }
 
         .typing-indicator {
@@ -261,43 +243,10 @@
             padding: 4px 24px;
         }
 
-        /* ================= INPUT region ================= */
         .input-panel {
             padding: 20px;
             background: #161925;
             border-top: 1px solid #23283d;
-        }
-
-        .preview-box {
-            display: none;
-            background: #0f111a;
-            border: 1px solid #23283d;
-            padding: 8px 12px;
-            border-radius: 8px;
-            width: fit-content;
-            margin-bottom: 10px;
-        }
-
-        .preview-content {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #38bdf8;
-            font-size: 13px;
-        }
-
-        .remove-preview-btn {
-            background: #ef4444;
-            color: #fff;
-            border: none;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            font-size: 10px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
         .input-container {
@@ -310,25 +259,13 @@
             padding: 6px 12px;
         }
 
-        .input-container:focus-within {
-            border-color: #38bdf8;
-        }
-
-        .attach-btn {
-            background: transparent;
-            border: none;
-            color: #64748b;
-            font-size: 18px;
-            cursor: pointer;
-        }
-
         .main-input {
             flex: 1;
             background: transparent;
             border: none;
             color: #e2e8f0;
             padding: 10px 4px;
-            font-size: 15px;
+            font-size: 14px;
             outline: none;
         }
 
@@ -336,14 +273,71 @@
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             border: none;
             color: #0f111a;
-            width: 38px;
-            height: 38px;
+            width: 36px;
+            height: 36px;
             border-radius: 8px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+        }
+
+        /* ================= NEW COLLABORATIVE EDITOR SIDE-PANEL ================= */
+        .editor-side-panel {
+            width: 450px;
+            background: #11131c;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .editor-header {
+            padding: 20px;
+            background: #161925;
+            border-bottom: 1px solid #23283d;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .editor-header h3 {
+            font-size: 15px;
+            color: #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ai-optimize-btn {
+            background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+            color: #fff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: opacity 0.2s;
+        }
+
+        .ai-optimize-btn:hover {
+            opacity: 0.9;
+        }
+
+        .editor-textarea {
+            flex: 1;
+            background: #090a0f;
+            color: #38bdf8;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            padding: 20px;
+            border: none;
+            resize: none;
+            outline: none;
+            line-height: 1.5;
         }
 
         /* ================= ANALYTICS OVERLAY INTERFACE ================= */
@@ -351,7 +345,7 @@
             display: none;
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15, 17, 26, 0.95);
+            background: rgba(15, 17, 26, 0.98);
             z-index: 100;
             padding: 30px;
             overflow-y: auto;
@@ -366,40 +360,23 @@
             margin-bottom: 24px;
         }
 
-        .close-analytics-btn {
-            background: #23283d;
-            border: none;
-            color: #e2e8f0;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            margin-bottom: 30px;
+            gap: 16px;
+            margin-bottom: 24px;
         }
 
         .metric-card {
             background: #161925;
             border: 1px solid #23283d;
-            padding: 20px;
-            border-radius: 10px;
+            padding: 16px;
+            border-radius: 8px;
             text-align: center;
         }
 
-        .metric-card h4 {
-            color: #64748b;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 6px;
-        }
-
         .metric-card p {
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 700;
             color: #38bdf8;
         }
@@ -407,23 +384,18 @@
         .charts-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 24px;
+            gap: 20px;
         }
 
         .chart-box {
             background: #161925;
             border: 1px solid #23283d;
-            padding: 20px;
-            border-radius: 10px;
-            height: 320px;
+            padding: 16px;
+            border-radius: 8px;
+            height: 280px;
             display: flex;
             flex-direction: column;
             align-items: center;
-        }
-
-        .chart-box h5 {
-            margin-bottom: 15px;
-            color: #94a3b8;
         }
     </style>
 </head>
@@ -431,9 +403,10 @@
 
     <div class="app-container">
         
+        <!-- SIDEBAR VIEW -->
         <div class="sidebar">
             <div class="sidebar-header">
-                <i class="fa-solid fa-brain" style="color: #38bdf8; font-size: 22px;"></i>
+                <i class="fa-solid fa-brain" style="color: #38bdf8; font-size: 20px;"></i>
                 <h2>MIND AI Workspace</h2>
             </div>
             
@@ -475,81 +448,60 @@
             <div class="sidebar-footer">
                 <div class="user-profile">
                     <div class="user-avatar">{{ username[0].upper() }}</div>
-                    <span style="font-weight: 600; font-size: 14px;">{{ username }}</span>
+                    <span style="font-weight: 600; font-size: 13px;">{{ username }}</span>
                 </div>
                 <a href="{{ url_for('logout') }}" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
             </div>
         </div>
 
+        <!-- MAIN CENTRAL CHAT FRAME -->
         <div class="chat-area">
             
+            <!-- LIVE ANALYTICS MODAL OVERLAY -->
             <div class="analytics-overlay" id="analytics_panel">
                 <div class="analytics-header">
                     <h2>📊 Workspace Analytics Dashboard</h2>
-                    <button class="close-analytics-btn" onclick="closeAnalyticsDashboard()">Close Dashboard ✕</button>
+                    <button class="close-analytics-btn" style="background:#23283d; border:none; color:#fff; padding:6px 12px; border-radius:4px; cursor:pointer;" onclick="closeAnalyticsDashboard()">Close ✕</button>
                 </div>
-                
                 <div class="metrics-grid">
-                    <div class="metric-card">
-                        <h4>Total Registered Users</h4>
-                        <p id="stat_users">0</p>
-                    </div>
-                    <div class="metric-card">
-                        <h4>Messages Exchanged</h4>
-                        <p id="stat_messages">0</p>
-                    </div>
-                    <div class="metric-card">
-                        <h4>AI Assistant Responses</h4>
-                        <p id="stat_ai">0</p>
-                    </div>
+                    <div class="metric-card"><h4>Total Users</h4><p id="stat_users">0</p></div>
+                    <div class="metric-card"><h4>Messages</h4><p id="stat_messages">0</p></div>
+                    <div class="metric-card"><h4>AI Answers</h4><p id="stat_ai">0</p></div>
                 </div>
-
                 <div class="charts-container">
-                    <div class="chart-box">
-                        <h5>Room/Channel Traffic Split</h5>
-                        <canvas id="channelBarChart"></canvas>
-                    </div>
-                    <div class="chart-box">
-                        <h5>AI Interactions vs Human Talks</h5>
-                        <canvas id="ratioPieChart"></canvas>
-                    </div>
+                    <div class="chart-box"><h5>Room Traffic</h5><canvas id="channelBarChart"></canvas></div>
+                    <div class="chart-box"><h5>Human vs AI Ratio</h5><canvas id="ratioPieChart"></canvas></div>
                 </div>
             </div>
 
             <div class="chat-header">
-                <div class="chat-target-info">
-                    <h3 id="chat_title"># General</h3>
-                </div>
+                <div class="chat-target-info"><h3 id="chat_title"># General</h3></div>
             </div>
 
             <div class="messages-container" id="messages_container"></div>
-
-            <div class="typing-indicator" id="ai_typing_state">
-                <i class="fa-solid fa-circle-notch fa-spin"></i> Gemini is thinking...
-            </div>
+            <div class="typing-indicator" id="ai_typing_state"><i class="fa-solid fa-circle-notch fa-spin"></i> Gemini Optimizer parsing code structural logs...</div>
 
             <div class="input-panel">
                 <div class="preview-box" id="preview_box">
-                    <div class="preview-content">
-                        <i id="preview_icon" class="fa-solid fa-file"></i>
-                        <span id="preview_filename">file_name.pdf</span>
-                        <button class="remove-preview-btn" onclick="clearFilePreview()">×</button>
-                    </div>
+                    <div class="preview-content"><i id="preview_icon" class="fa-solid fa-file"></i> <span id="preview_filename">file.txt</span><button class="remove-preview-btn" onclick="clearFilePreview()">×</button></div>
                 </div>
-                
                 <div class="input-container">
-                    <button class="attach-btn" onclick="document.getElementById('file_uploader').click()">
-                        <i class="fa-solid fa-paperclip"></i>
-                    </button>
+                    <button class="attach-btn" onclick="document.getElementById('file_uploader').click()"><i class="fa-solid fa-paperclip"></i></button>
                     <input type="file" id="file_uploader" accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" style="display: none;" onchange="handleFileSelection(event)">
-                    
-                    <input type="text" id="input_field" class="main-input" placeholder="Type message, use @ai with document upload..." onkeypress="if(event.key === 'Enter') sendMessage()">
-                    
-                    <button class="send-btn" onclick="sendMessage()">
-                        <i class="fa-solid fa-paper-plane"></i>
-                    </button>
+                    <input type="text" id="input_field" class="main-input" placeholder="Type message or tag @ai..." onkeypress="if(event.key === 'Enter') sendMessage()">
+                    <button class="send-btn" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
                 </div>
             </div>
+        </div>
+
+        <!-- NEW COLLABORATIVE EDITOR PANEL -->
+        <div class="editor-side-panel">
+            <div class="editor-header">
+                <h3><i class="fa-solid fa-code" style="color:#a855f7;"></i> Collaborative Sandbox</h3>
+                <button class="ai-optimize-btn" onclick="triggerAiCodeOptimization()"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Optimize</button>
+            </div>
+            <!-- Text area hook triggers socket broadcast dynamically on input -->
+            <textarea id="shared_code_sandbox" class="editor-textarea" placeholder="// Paste code here and work with friends live..." oninput="broadcastCodeTyping()"></textarea>
         </div>
 
     </div>
@@ -563,8 +515,6 @@
         let globalFilePayload = null;
         let globalFileName = '';
         let globalFileType = '';
-
-        // Chart Instance References for safe redraw tracking
         let barChartInstance = null;
         let pieChartInstance = null;
 
@@ -575,80 +525,82 @@
         socket.on('user_presence_change', (data) => {
             const dot = document.getElementById(`status-dot-${data.user_id}`);
             if(dot) {
-                if(data.is_online === 1) {
-                    dot.classList.add('online');
-                } else {
-                    dot.classList.remove('online');
-                }
+                if(data.is_online === 1) dot.classList.add('online');
+                else dot.classList.remove('online');
             }
         });
 
-        // Real-time socket event trigger to recalculate active metrics on the fly
-        socket.on('refresh_analytics_trigger', () => {
-            if(document.getElementById('analytics_panel').style.display === 'block') {
-                loadAndRenderAnalyticsData();
-            }
+        // Sync local pad content state when other users edit text fields
+        socket.on('code_type_sync', (data) => {
+            document.getElementById('shared_code_sandbox').value = data.text;
         });
+
+        // Initial fetch call update when transitioning channel rooms
+        socket.on('sync_editor_pad', (data) => {
+            document.getElementById('shared_code_sandbox').value = data.text;
+        });
+
+        socket.on('refresh_analytics_trigger', () => {
+            if(document.getElementById('analytics_panel').style.display === 'block') loadAndRenderAnalyticsData();
+        });
+
+        function broadcastCodeTyping() {
+            const currentCodeText = document.getElementById('shared_code_sandbox').value;
+            socket.emit('code_type_sync', {
+                room_type: currentRoomType,
+                target_id: currentTargetId,
+                text: currentCodeText
+            });
+        }
+
+        function triggerAiCodeOptimization() {
+            const codeContent = document.getElementById('shared_code_sandbox').value;
+            if(!codeContent.strip) {
+                const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                socket.emit('ai_optimize_code', {
+                    room_type: currentRoomType,
+                    target_id: currentTargetId,
+                    text: codeContent,
+                    time: timeStr
+                });
+            }
+        }
 
         function openAnalyticsDashboard() {
             document.getElementById('analytics_panel').style.display = 'block';
             loadAndRenderAnalyticsData();
         }
 
-        function closeAnalyticsDashboard() {
-            document.getElementById('analytics_panel').style.display = 'none';
-        }
+        function closeAnalyticsDashboard() { document.getElementById('analytics_panel').style.display = 'none'; }
 
         function loadAndRenderAnalyticsData() {
             fetch('/api/analytics')
                 .then(res => res.json())
                 .then(data => {
-                    // Update Text Aggregates
                     document.getElementById('stat_users').innerText = data.total_users;
                     document.getElementById('stat_messages').innerText = data.total_messages;
                     document.getElementById('stat_ai').innerText = data.ai_queries;
 
-                    // Render Channel Traffic Distribution (Bar Chart)
                     const ctxBar = document.getElementById('channelBarChart').getContext('2d');
                     if(barChartInstance) barChartInstance.destroy();
                     barChartInstance = new Chart(ctxBar, {
                         type: 'bar',
                         data: {
                             labels: data.channels,
-                            datasets: [{
-                                label: 'Messages Count',
-                                data: data.channel_counts,
-                                backgroundColor: '#4facfe',
-                                borderColors: '#00f2fe',
-                                borderRadius: 5
-                            }]
+                            datasets: [{ data: data.channel_counts, backgroundColor: '#4facfe', borderRadius: 4 }]
                         },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: { y: { grid: { color: '#23283d' }, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } }
-                        }
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
                     });
 
-                    // Render Human vs AI ratio parameters (Pie Chart)
                     const ctxPie = document.getElementById('ratioPieChart').getContext('2d');
                     if(pieChartInstance) pieChartInstance.destroy();
                     pieChartInstance = new Chart(ctxPie, {
                         type: 'pie',
                         data: {
-                            labels: ['Human Users', 'AI Assistant'],
-                            datasets: [{
-                                data: [data.human_messages, data.ai_queries],
-                                backgroundColor: ['#a855f7', '#10b981'],
-                                borderWidth: 0
-                            }]
+                            labels: ['Human', 'AI'],
+                            datasets: [{ data: [data.human_messages, data.ai_queries], backgroundColor: ['#a855f7', '#10b981'] }]
                         },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { labels: { color: '#94a3b8' } } }
-                        }
+                        options: { responsive: true, maintainAspectRatio: false }
                     });
                 });
         }
@@ -656,15 +608,12 @@
         function switchTarget(type, id, name) {
             currentRoomType = type;
             currentTargetId = id;
-            
             document.querySelectorAll('.selector-btn').forEach(btn => btn.classList.remove('active'));
             const activeBtn = document.getElementById(`btn-${type}-${id}`);
             if (activeBtn) activeBtn.classList.add('active');
 
             document.getElementById('chat_title').innerText = type === 'public' ? `# ${name}` : `🟢 ${name}`;
-            if(type === 'private') {
-                currentTargetUsername = name;
-            }
+            if(type === 'private') currentTargetUsername = name;
 
             document.getElementById('messages_container').innerHTML = '';
             socket.emit('join', {
@@ -683,9 +632,7 @@
         });
 
         socket.on('message', (data) => {
-            if (data.username === '🤖 AI Assistant') {
-                document.getElementById('ai_typing_state').style.display = 'none';
-            }
+            if (data.username.includes('AI')) document.getElementById('ai_typing_state').style.display = 'none';
             appendMessageBubble(data);
             scrollToBottom();
         });
@@ -700,7 +647,7 @@
         function appendMessageBubble(data) {
             const container = document.getElementById('messages_container');
             const isSelf = data.username === "{{ username }}";
-            const isAI = data.username === '🤖 AI Assistant';
+            const isAI = data.username.includes('AI');
 
             let rowClass = 'message-row';
             if (isSelf) rowClass += ' self';
@@ -708,31 +655,22 @@
 
             const row = document.createElement('div');
             row.className = rowClass;
-
-            row.innerHTML = `
-                <div class="message-meta">${data.username} • ${data.time}</div>
-                <div class="message-bubble">${data.text}</div>
-            `;
+            row.innerHTML = `<div class="message-meta">${data.username} • ${data.time}</div><div class="message-bubble">${data.text}</div>`;
             container.appendChild(row);
         }
 
         function handleFileSelection(e) {
             const file = e.target.files[0];
             if (file) {
-                globalFileName = file.name;
-                globalFileType = file.type;
-                
+                globalFileName = file.name; globalFileType = file.type;
                 const reader = new FileReader();
                 reader.onload = function (event) {
                     globalFilePayload = event.target.result;
-                    
                     const iconEl = document.getElementById('preview_icon');
                     iconEl.className = "fa-solid ";
                     if(globalFileType.startsWith('image/')) iconEl.classList.add('fa-file-image');
                     else if(globalFileType === 'application/pdf') iconEl.classList.add('fa-file-pdf');
-                    else if(globalFileType.includes('document')) iconEl.classList.add('fa-file-word');
-                    else iconEl.classList.add('fa-file-lines');
-
+                    else iconEl.classList.add('fa-file-word');
                     document.getElementById('preview_filename').innerText = globalFileName;
                     document.getElementById('preview_box').style.display = 'block';
                 }
@@ -741,34 +679,22 @@
         }
 
         function clearFilePreview() {
-            globalFilePayload = null;
-            globalFileName = '';
-            globalFileType = '';
-            document.getElementById('file_uploader').value = '';
+            globalFilePayload = null; document.getElementById('file_uploader').value = '';
             document.getElementById('preview_box').style.display = 'none';
         }
 
         function sendMessage() {
             const field = document.getElementById('input_field');
             const msgText = field.value.trim();
-
             if (!msgText && !globalFilePayload) return;
-
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
             socket.emit('message', {
-                username: "{{ username }}",
-                text: msgText,
-                file: globalFilePayload,
-                file_name: globalFileName,
-                file_type: globalFileType,
-                time: timeStr,
-                room_type: currentRoomType,
-                target_id: currentTargetId
+                username: "{{ username }}", text: msgText, file: globalFilePayload,
+                file_name: globalFileName, file_type: globalFileType, time: timeStr,
+                room_type: currentRoomType, target_id: currentTargetId
             });
-
-            field.value = '';
-            clearFilePreview();
+            field.value = ''; clearFilePreview();
         }
 
         function scrollToBottom() {
