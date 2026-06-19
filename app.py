@@ -19,8 +19,6 @@ login_manager.init_app(app)
 client = genai.Client()
 DATABASE_FILE = 'chat_history.db'
 session_user_map = {}
-
-# Dynamic in-memory cluster to hold live pad states per room channel
 shared_pads = {}
 
 class User(UserMixin):
@@ -64,6 +62,17 @@ def init_db():
             FOREIGN KEY(receiver_id) REFERENCES users(id)
         )
     ''')
+    # NEW SCHEMA: Bookmarks/Pinned array mapping architecture table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS bookmarks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            message_id INTEGER NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            FOREIGN KEY(message_id) REFERENCES messages(id),
+            UNIQUE(user_id, message_id)
+        )
+    ''')
     try:
         cursor.execute("INSERT INTO rooms (name) VALUES ('General')")
         cursor.execute("INSERT INTO rooms (name) VALUES ('AI-Talks')")
@@ -77,8 +86,10 @@ def save_message(username, text, time, room_id=None, receiver_id=None):
     cursor = conn.cursor()
     cursor.execute('INSERT INTO messages (username, text, time, room_id, receiver_id) VALUES (?, ?, ?, ?, ?)', 
                    (username, text, time, room_id, receiver_id))
+    generated_id = cursor.lastrowid
     conn.commit()
     conn.close()
+    return generated_id
 
 def update_user_status(user_id, status_code):
     conn = sqlite3.connect(DATABASE_FILE)
@@ -89,39 +100,61 @@ def update_user_status(user_id, status_code):
 
 init_db()
 
-# ================= WORKSPACE ANALYTICS API ENDPOINT =================
+# ================= NEW BOOKMARK REST API ROUTING MATRIX =================
+@app.route('/api/bookmarks', methods=['GET', 'POST'])
+@login_required
+def handle_bookmarks():
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    if request.method == 'POST':
+        # Bookmark create or delete workflow (Toggle action)
+        msg_id = request.json.get('message_id')
+        try:
+            cursor.execute("INSERT INTO bookmarks (user_id, message_id) VALUES (?, ?)", (current_user.id, msg_id))
+            conn.commit()
+            status = "pinned"
+        except sqlite3.IntegrityError:
+            # Overlap indices mean user wants to delete the existing bookmark
+            cursor.execute("DELETE FROM bookmarks WHERE user_id = ? AND message_id = ?", (current_user.id, msg_id))
+            conn.commit()
+            status = "unpinned"
+        conn.close()
+        return jsonify({'status': status})
+        
+    else:
+        # Fetch current user pinned bookmarks list
+        cursor.execute("""
+            SELECT m.username, m.text, m.time FROM bookmarks b
+            JOIN messages m ON b.message_id = m.id
+            WHERE b.user_id = ? ORDER BY b.id DESC
+        """, (current_user.id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return jsonify([{'username': r[0], 'text': r[1], 'time': r[2]} for r in rows])
+
 @app.route('/api/analytics')
 @login_required
 def get_analytics():
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
-    
     cursor.execute("SELECT COUNT(*) FROM users")
     total_users = cursor.fetchone()[0]
-    
     cursor.execute("SELECT COUNT(*) FROM messages")
     total_messages = cursor.fetchone()[0]
-    
     cursor.execute("SELECT COUNT(*) FROM messages WHERE username LIKE '%AI%'")
     ai_messages = cursor.fetchone()[0]
-    
     human_messages = total_messages - ai_messages
     
-    cursor.execute("""
-        SELECT r.name, COUNT(m.id) FROM rooms r 
-        LEFT JOIN messages m ON r.id = m.room_id 
-        GROUP BY r.id
-    """)
+    cursor.execute("SELECT r.name, COUNT(m.id) FROM rooms r LEFT JOIN messages m ON r.id = m.room_id GROUP BY r.id")
     channel_data = cursor.fetchall()
     channels = [row[0] for row in channel_data]
     channel_counts = [row[1] for row in channel_data]
     
     cursor.execute("SELECT COUNT(*) FROM messages WHERE receiver_id IS NOT NULL")
     private_dm_count = cursor.fetchone()[0]
-    
     channels.append("Private DMs")
     channel_counts.append(private_dm_count)
-    
     conn.close()
     
     return jsonify({
@@ -133,7 +166,6 @@ def get_analytics():
         'channel_counts': channel_counts
     })
 
-# ================= HTTP ROUTES =================
 @app.route('/')
 @login_required
 def index():
@@ -219,19 +251,29 @@ def on_join(data):
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     if room_type == 'public':
-        cursor.execute('SELECT username, text, time FROM messages WHERE room_id = ? ORDER BY id ASC', (target_id,))
+        cursor.execute('SELECT id, username, text, time FROM messages WHERE room_id = ? ORDER BY id ASC', (target_id,))
     else:
         cursor.execute('''
-            SELECT username, text, time FROM messages 
+            SELECT id, username, text, time FROM messages 
             WHERE (username = ? AND receiver_id = ?) OR (username = ? AND receiver_id = ?) 
             ORDER BY id ASC
         ''', (current_user.username, target_id, data.get('target_username'), current_user.id))
     rows = cursor.fetchall()
+    
+    # Check current user pinned status flags for UI syncing
+    cursor.execute("SELECT message_id FROM bookmarks WHERE user_id = ?", (current_user.id,))
+    user_pinned_ids = [r[0] for r in cursor.fetchall()]
     conn.close()
     
-    history = [{'username': r[0], 'text': r[1], 'time': r[2]} for r in rows]
-    emit('load_history', history)
+    history = [{
+        'id': r[0], 
+        'username': r[1], 
+        'text': r[2], 
+        'time': r[3],
+        'is_pinned': (r[0] in user_pinned_ids)
+    } for r in rows]
     
+    emit('load_history', history)
     current_pad_text = shared_pads.get(session_room, "// Welcome to MIND AI Code Sandbox.\n// Start collaborating live here...")
     emit('sync_editor_pad', {'text': current_pad_text})
 
@@ -240,12 +282,10 @@ def handle_code_sync(data):
     room_type = data.get('room_type')
     target_id = data.get('target_id')
     raw_text = data.get('text')
-    
     if room_type == 'public':
         session_room = f"room_{target_id}"
     else:
         session_room = f"dm_{min(int(current_user.id), int(target_id))}_{max(int(current_user.id), int(target_id))}"
-        
     shared_pads[session_room] = raw_text
     emit('code_type_sync', {'text': raw_text}, to=session_room, include_self=False)
 
@@ -255,40 +295,27 @@ def handle_ai_code_optimization(data):
     target_id = data.get('target_id')
     code_content = data.get('text', '').strip()
     current_time = data.get('time', '')
-    
     if room_type == 'public':
         session_room = f"room_{target_id}"
     else:
         session_room = f"dm_{min(int(current_user.id), int(target_id))}_{max(int(current_user.id), int(target_id))}"
-        
-    if not code_content:
-        return
-        
+    if not code_content: return
     emit('ai_typing', 'start', to=session_room)
-    
     system_instruction = (
         "You are the MIND AI Code Optimization Expert. "
         "Analyze the provided code snippets or text framework. "
         "Identify runtime bugs, structural flaws, and performance bottlenecks. "
-        "Strictly output your response using clear bold headings (###), highly detailed bullet points (•), and optimized code segments wrapped in syntax code blocks. "
-        "Do not write monolithic prose or long paragraphs."
+        "Strictly output your response using clear bold headings (###), highly detailed bullet points (•), and optimized code segments wrapped in syntax code blocks."
     )
-    
-    prompt = f"{system_instruction}\n\nReview and Optimize this Source Code:\n```\n{code_content}\n'''\n"
-    
+    prompt = f"{system_instruction}\n\nReview and Optimize this Source Code:\n```\n{code_content}\n```"
     try:
         response = client.models.generate_content(model='gemini-2.5-flash', contents=[prompt])
         ai_response_text = response.text.replace('\n', '<br>')
     except Exception as e:
-        ai_response_text = f"**Code Optimizer Log Failure:**<br>• Engine processing anomaly.<br>• Technical info: {str(e)}"
-        
-    ai_data = {'username': '🤖 AI Code Optimizer', 'text': ai_response_text, 'time': current_time}
+        ai_response_text = f"**Code Optimizer Log Failure:**<br>• Technical info: {str(e)}"
     
-    if room_type == 'public':
-        save_message('🤖 AI Code Optimizer', ai_response_text, current_time, room_id=target_id)
-    else:
-        save_message('🤖 AI Code Optimizer', ai_response_text, current_time, receiver_id=target_id)
-        
+    generated_id = save_message('🤖 AI Code Optimizer', ai_response_text, current_time, room_id=(target_id if room_type == 'public' else None), receiver_id=(None if room_type == 'public' else target_id))
+    ai_data = {'id': generated_id, 'username': '🤖 AI Code Optimizer', 'text': ai_response_text, 'time': current_time, 'is_pinned': False}
     emit('message', ai_data, to=session_room)
     emit('refresh_analytics_trigger', {}, broadcast=True)
 
@@ -300,7 +327,6 @@ def handle_message(data):
     file_data = data.get('file', None)
     file_name = data.get('file_name', '')
     file_type = data.get('file_type', '')
-    
     room_type = data.get('room_type', 'public')
     target_id = data.get('target_id')
     
@@ -310,27 +336,27 @@ def handle_message(data):
         session_room = f"dm_{min(int(current_user.id), int(target_id))}_{max(int(current_user.id), int(target_id))}"
     
     display_text = message_text
-    
     if file_data:
         if file_type.startswith('image/'):
             display_text = f'<div style="margin-bottom:8px;"><img src="{file_data}" style="max-width:200px; border-radius:8px; display:block;"/></div>' + message_text
         else:
             display_text = f'<div style="margin-bottom:8px; background:#2d3142; padding:10px; border-radius:6px; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-file-invoice" style="color:#38bdf8;"></i> <span style="font-size:13px; color:#e2e8f0;">{file_name}</span></div>' + message_text
     
-    data['text'] = display_text
-    
     if room_type == 'public':
-        save_message(username, display_text, current_time, room_id=target_id)
+        generated_id = save_message(username, display_text, current_time, room_id=target_id)
     else:
-        save_message(username, display_text, current_time, receiver_id=target_id)
+        generated_id = save_message(username, display_text, current_time, receiver_id=target_id)
         
+    data['id'] = generated_id
+    data['text'] = display_text
+    data['is_pinned'] = False
+    
     emit('message', data, to=session_room)
     emit('refresh_analytics_trigger', {}, broadcast=True)
     
     if message_text.startswith('@ai'):
         user_query = message_text.replace('@ai', '').strip()
         emit('ai_typing', 'start', to=session_room)
-        
         contents_payload = []
         doc_text_extraction = ""
         
@@ -339,41 +365,29 @@ def handle_message(data):
                 header, encoded = file_data.split(",", 1)
                 mime_type = header.split(";")[0].split(":")[1]
                 file_bytes = base64.b64decode(encoded)
-                
                 if "wordprocessingml" in mime_type or file_name.endswith('.docx'):
                     doc_text_extraction = f"\n[Attached Document Content Name: {file_name}]\n This is raw text from the file:\n" + file_bytes.decode('utf-8', errors='ignore')
                 elif "plain" in mime_type or file_name.endswith('.txt'):
                     doc_text_extraction = f"\n[Attached Text Content Name: {file_name}]\n" + file_bytes.decode('utf-8', errors='ignore')
                 else:
                     contents_payload.append(types.Part.from_bytes(data=file_bytes, mime_type=mime_type))
-            except Exception as e:
-                print(f"File extraction structural anomaly: {e}")
+            except Exception as e: pass
         
         system_instruction = (
-            "You are MIND AI Workspace Assistant. STRICT COMPLIANCE RULES:\n"
-            "1. NEVER output long, dense paragraphs. Users hate it.\n"
-            "2. Always structure the text beautifully using clear bold Headings (###), concise Bullet points (•), or numbered arrays.\n"
-            "3. If providing source segments or program logs, encapsulate them in clean Code blocks.\n"
-            "4. Maintain maximum scannability and professional brevity."
+            "You are MIND AI Workspace Assistant. STYLED PARAGRAPH COMPLIANCE:\n"
+            "Always structure the text beautifully using clear bold Headings (###), concise Bullet points (•), or numbered arrays."
         )
-        
-        base_prompt = user_query if user_query else "Analyze the attached file content carefully and summarize it."
-        final_prompt = f"{system_instruction}\n\nUser Prompt: {base_prompt} {doc_text_extraction}"
+        final_prompt = f"{system_instruction}\n\nUser Prompt: {user_query} {doc_text_extraction}"
         contents_payload.append(final_prompt)
         
         try:
             response = client.models.generate_content(model='gemini-2.5-flash', contents=contents_payload)
             ai_response_text = response.text.replace('\n', '<br>')
         except Exception as e:
-            ai_response_text = f"**Error Context Execution Block:**<br>• Unsupported or heavily encrypted content matrix.<br>• Logs: {str(e)}"
+            ai_response_text = f"**Error Context Execution Block:**<br>• Logs: {str(e)}"
             
-        ai_data = {'username': '🤖 AI Assistant', 'text': ai_response_text, 'time': current_time}
-        
-        if room_type == 'public':
-            save_message('🤖 AI Assistant', ai_response_text, current_time, room_id=target_id)
-        else:
-            save_message('🤖 AI Assistant', ai_response_text, current_time, receiver_id=target_id)
-            
+        ai_msg_id = save_message('🤖 AI Assistant', ai_response_text, current_time, room_id=(target_id if room_type == 'public' else None), receiver_id=(None if room_type == 'public' else target_id))
+        ai_data = {'id': ai_msg_id, 'username': '🤖 AI Assistant', 'text': ai_response_text, 'time': current_time, 'is_pinned': False}
         emit('message', ai_data, to=session_room)
         emit('refresh_analytics_trigger', {}, broadcast=True)
 

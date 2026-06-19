@@ -8,402 +8,86 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background-color: #0f111a;
-            color: #e2e8f0;
-            height: 100vh;
-            display: flex;
-        }
-
-        .app-container {
-            display: flex;
-            width: 100%;
-            height: 100vh;
-            overflow: hidden;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0f111a; color: #e2e8f0; height: 100vh; display: flex; }
+        .app-container { display: flex; width: 100%; height: 100vh; overflow: hidden; }
 
         /* ================= SIDEBAR ================= */
-        .sidebar {
-            width: 260px;
-            background: #161925;
-            border-right: 1px solid #23283d;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            flex-shrink: 0;
-        }
+        .sidebar { width: 260px; background: #161925; border-right: 1px solid #23283d; display: flex; flex-direction: column; justify-content: space-between; flex-shrink: 0; }
+        .sidebar-header { padding: 24px 20px; border-bottom: 1px solid #23283d; display: flex; align-items: center; gap: 10px; }
+        .sidebar-header h2 { font-size: 16px; font-weight: 600; background: linear-gradient(45deg, #00f2fe, #4facfe); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .sidebar-content { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+        .section-title { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; font-weight: 700; }
+        .list-container { display: flex; flex-direction: column; gap: 4px; }
+        
+        .selector-btn { background: transparent; border: none; color: #94a3b8; text-align: left; padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 14px; transition: all 0.2s ease; }
+        .selector-btn:hover, .selector-btn.active { background: #1e2235; color: #38bdf8; }
+        .analytics-trigger-btn, .bookmark-trigger-btn { font-weight: 600; border: 1px dashed rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.05); color: #38bdf8; margin-bottom: 4px; }
+        .bookmark-trigger-btn { border-color: rgba(234, 179, 8, 0.3); color: #eab308; background: rgba(234, 179, 8, 0.05); }
 
-        .sidebar-header {
-            padding: 24px 20px;
-            border-bottom: 1px solid #23283d;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .sidebar-header h2 {
-            font-size: 16px;
-            font-weight: 600;
-            background: linear-gradient(45deg, #00f2fe, #4facfe);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .sidebar-content {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .section-title {
-            color: #64748b;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-bottom: 10px;
-            font-weight: 700;
-        }
-
-        .list-container {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .selector-btn {
-            background: transparent;
-            border: none;
-            color: #94a3b8;
-            text-align: left;
-            padding: 10px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-            font-size: 14px;
-            transition: all 0.2s ease;
-        }
-
-        .selector-btn:hover {
-            background: #1e2235;
-            color: #e2e8f0;
-        }
-
-        .selector-btn.active {
-            background: linear-gradient(135deg, rgba(79, 172, 254, 0.1), rgba(0, 242, 254, 0.1));
-            color: #38bdf8;
-            border-left: 3px solid #38bdf8;
-            border-radius: 0 8px 8px 0;
-            padding-left: 9px;
-            font-weight: 600;
-        }
-
-        .analytics-trigger-btn {
-            background: rgba(56, 189, 248, 0.08);
-            color: #38bdf8;
-            border: 1px dashed rgba(56, 189, 248, 0.3);
-            margin-bottom: 12px;
-            font-weight: 600;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background-color: #64748b;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .status-dot.online {
-            background-color: #10b981;
-            box-shadow: 0 0 8px #10b981;
-        }
-
-        .sidebar-footer {
-            padding: 20px;
-            background: #11131c;
-            border-top: 1px solid #23283d;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .user-avatar {
-            width: 32px;
-            height: 32px;
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: #0f111a;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 13px;
-        }
-
-        .logout-btn {
-            color: #ef4444;
-            text-decoration: none;
-            font-size: 13px;
-        }
+        .status-dot { width: 8px; height: 8px; background-color: #64748b; border-radius: 50%; display: inline-block; }
+        .status-dot.online { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+        .sidebar-footer { padding: 20px; background: #11131c; border-top: 1px solid #23283d; display: flex; align-items: center; justify-content: space-between; }
+        .user-avatar { width: 32px; height: 32px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #0f111a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; }
+        .logout-btn { color: #ef4444; text-decoration: none; font-size: 13px; }
 
         /* ================= CENTRAL MAIN CHAT REGION ================= */
-        .chat-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background-color: #0f111a;
-            position: relative;
-            border-right: 1px solid #23283d;
-        }
+        .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #0f111a; position: relative; border-right: 1px solid #23283d; }
+        .chat-header { padding: 16px 20px; background: #161925; border-bottom: 1px solid #23283d; display: flex; align-items: center; justify-content: space-between; }
+        
+        .search-wrapper { position: relative; width: 280px; }
+        .search-bar-input { width: 100%; background: #0f111a; border: 1px solid #23283d; border-radius: 6px; padding: 8px 12px 8px 34px; color: #e2e8f0; font-size: 13px; outline: none; }
+        .search-bar-input:focus { border-color: #38bdf8; }
+        .search-icon-anchor { position: absolute; left: 12px; top: 10px; color: #64748b; font-size: 12px; }
 
-        .chat-header {
-            padding: 20px;
-            background: #161925;
-            border-bottom: 1px solid #23283d;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
+        .messages-container { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+        .message-row { display: flex; flex-direction: column; max-width: 85%; width: fit-content; position: relative; }
+        .message-row.self { margin-left: auto; align-items: flex-end; }
+        .message-meta { font-size: 11px; color: #64748b; margin-bottom: 4px; display: flex; gap: 8px; }
+        
+        .message-bubble-wrapper { display: flex; align-items: center; gap: 8px; width: 100%; }
+        .message-row.self .message-bubble-wrapper { flex-direction: row-reverse; }
+        
+        .message-bubble { background-color: #1e2235; color: #e2e8f0; padding: 12px 16px; border-radius: 12px; border-top-left-radius: 2px; line-height: 1.6; font-size: 14px; }
+        .message-row.self .message-bubble { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #0f111a; font-weight: 500; border-radius: 12px; border-top-right-radius: 2px; }
+        .message-row.ai .message-bubble { background-color: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.15); }
 
-        .messages-container {
-            flex: 1;
-            padding: 24px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
+        .bookmark-star-toggle { background: transparent; border: none; color: #475569; cursor: pointer; font-size: 14px; transition: color 0.2s; opacity: 0.4; }
+        .message-row:hover .bookmark-star-toggle, .bookmark-star-toggle.active { opacity: 1; }
+        .bookmark-star-toggle.active { color: #eab308; }
 
-        .message-row {
-            display: flex;
-            flex-direction: column;
-            max-width: 85%;
-            width: fit-content;
-        }
+        .typing-indicator { display: none; color: #38bdf8; font-size: 13px; font-style: italic; padding: 4px 24px; }
+        
+        /* ================= INPUT REGION ================= */
+        .input-panel { padding: 20px; background: #161925; border-top: 1px solid #23283d; }
+        .preview-box { display: none; background: #0f111a; border: 1px solid #23283d; padding: 8px 12px; border-radius: 8px; width: fit-content; margin-bottom: 10px; }
+        .preview-content { display: flex; align-items: center; gap: 10px; color: #38bdf8; font-size: 13px; }
+        .remove-preview-btn { background: #ef4444; color: #fff; border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-        .message-row.self {
-            margin-left: auto;
-            align-items: flex-end;
-        }
+        .input-container { display: flex; align-items: center; gap: 12px; background: #0f111a; border: 1px solid #23283d; border-radius: 10px; padding: 6px 12px; }
+        .main-input { flex: 1; background: transparent; border: none; color: #e2e8f0; padding: 10px 4px; font-size: 14px; outline: none; }
+        .send-btn { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border: none; color: #0f111a; width: 36px; height: 36px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-        .message-meta {
-            font-size: 11px;
-            color: #64748b;
-            margin-bottom: 4px;
-        }
+        /* ================= COLLABORATIVE EDITOR SIDE-PANEL ================= */
+        .editor-side-panel { width: 400px; background: #11131c; display: flex; flex-direction: column; flex-shrink: 0; }
+        .editor-header { padding: 20px; background: #161925; border-bottom: 1px solid #23283d; display: flex; align-items: center; justify-content: space-between; }
+        .editor-header h3 { font-size: 15px; color: #f1f5f9; display: flex; align-items: center; gap: 8px; }
+        .editor-textarea { flex: 1; background: #090a0f; color: #38bdf8; font-family: 'Courier New', Courier, monospace; font-size: 14px; padding: 20px; border: none; resize: none; outline: none; }
 
-        .message-bubble {
-            background-color: #1e2235;
-            color: #e2e8f0;
-            padding: 12px 16px;
-            border-radius: 12px;
-            border-top-left-radius: 2px;
-            line-height: 1.6;
-            font-size: 14px;
-        }
-
-        .message-row.self .message-bubble {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: #0f111a;
-            font-weight: 500;
-            border-radius: 12px;
-            border-top-right-radius: 2px;
-        }
-
-        .message-row.ai .message-bubble {
-            background-color: rgba(56, 189, 248, 0.05);
-            border: 1px solid rgba(56, 189, 248, 0.15);
-        }
-
-        .typing-indicator {
-            display: none;
-            color: #38bdf8;
-            font-size: 13px;
-            font-style: italic;
-            padding: 4px 24px;
-        }
-
-        .input-panel {
-            padding: 20px;
-            background: #161925;
-            border-top: 1px solid #23283d;
-        }
-
-        .input-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: #0f111a;
-            border: 1px solid #23283d;
-            border-radius: 10px;
-            padding: 6px 12px;
-        }
-
-        .main-input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: #e2e8f0;
-            padding: 10px 4px;
-            font-size: 14px;
-            outline: none;
-        }
-
-        .send-btn {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            border: none;
-            color: #0f111a;
-            width: 36px;
-            height: 36px;
-            border-radius: 8px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* ================= NEW COLLABORATIVE EDITOR SIDE-PANEL ================= */
-        .editor-side-panel {
-            width: 450px;
-            background: #11131c;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-        }
-
-        .editor-header {
-            padding: 20px;
-            background: #161925;
-            border-bottom: 1px solid #23283d;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .editor-header h3 {
-            font-size: 15px;
-            color: #f1f5f9;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .ai-optimize-btn {
-            background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
-            color: #fff;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: opacity 0.2s;
-        }
-
-        .ai-optimize-btn:hover {
-            opacity: 0.9;
-        }
-
-        .editor-textarea {
-            flex: 1;
-            background: #090a0f;
-            color: #38bdf8;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 14px;
-            padding: 20px;
-            border: none;
-            resize: none;
-            outline: none;
-            line-height: 1.5;
-        }
-
-        /* ================= ANALYTICS OVERLAY INTERFACE ================= */
-        .analytics-overlay {
-            display: none;
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15, 17, 26, 0.98);
-            z-index: 100;
-            padding: 30px;
-            overflow-y: auto;
-        }
-
-        .analytics-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid #23283d;
-            padding-bottom: 15px;
-            margin-bottom: 24px;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .metric-card {
-            background: #161925;
-            border: 1px solid #23283d;
-            padding: 16px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .metric-card p {
-            font-size: 24px;
-            font-weight: 700;
-            color: #38bdf8;
-        }
-
-        .charts-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .chart-box {
-            background: #161925;
-            border: 1px solid #23283d;
-            padding: 16px;
-            border-radius: 8px;
-            height: 280px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+        /* ================= MODAL SLIDEOVERS ================= */
+        .analytics-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 17, 26, 0.98); z-index: 100; padding: 30px; overflow-y: auto; }
+        .analytics-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #23283d; padding-bottom: 15px; margin-bottom: 24px; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+        .metric-card { background: #161925; border: 1px solid #23283d; padding: 16px; border-radius: 8px; text-align: center; }
+        .metric-card p { font-size: 24px; font-weight: 700; color: #38bdf8; }
+        .charts-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .chart-box { background: #161925; border: 1px solid #23283d; padding: 16px; border-radius: 8px; height: 260px; display: flex; flex-direction: column; align-items: center; }
     </style>
 </head>
 <body>
 
     <div class="app-container">
         
-        <!-- SIDEBAR VIEW -->
         <div class="sidebar">
             <div class="sidebar-header">
                 <i class="fa-solid fa-brain" style="color: #38bdf8; font-size: 20px;"></i>
@@ -412,8 +96,13 @@
             
             <div class="sidebar-content">
                 <button class="selector-btn analytics-trigger-btn" onclick="openAnalyticsDashboard()">
-                    <span><i class="fa-solid fa-chart-pie" style="margin-right: 8px;"></i> Workspace Analytics</span>
-                    <i class="fa-solid fa-arrow-right-long"></i>
+                    <span><i class="fa-solid fa-chart-pie" style="margin-right: 8px;"></i> Metrics Panel</span>
+                    <i class="fa-solid fa-chart-line"></i>
+                </button>
+
+                <button class="selector-btn bookmark-trigger-btn" onclick="openBookmarksView()">
+                    <span><i class="fa-solid fa-star" style="margin-right: 8px;"></i> Bookmarked Pins</span>
+                    <i class="fa-solid fa-chevron-right"></i>
                 </button>
 
                 <div class="channels-section">
@@ -454,36 +143,48 @@
             </div>
         </div>
 
-        <!-- MAIN CENTRAL CHAT FRAME -->
         <div class="chat-area">
             
-            <!-- LIVE ANALYTICS MODAL OVERLAY -->
             <div class="analytics-overlay" id="analytics_panel">
-                <div class="analytics-header">
-                    <h2>📊 Workspace Analytics Dashboard</h2>
-                    <button class="close-analytics-btn" style="background:#23283d; border:none; color:#fff; padding:6px 12px; border-radius:4px; cursor:pointer;" onclick="closeAnalyticsDashboard()">Close ✕</button>
-                </div>
-                <div class="metrics-grid">
-                    <div class="metric-card"><h4>Total Users</h4><p id="stat_users">0</p></div>
-                    <div class="metric-card"><h4>Messages</h4><p id="stat_messages">0</p></div>
-                    <div class="metric-card"><h4>AI Answers</h4><p id="stat_ai">0</p></div>
-                </div>
-                <div class="charts-container">
-                    <div class="chart-box"><h5>Room Traffic</h5><canvas id="channelBarChart"></canvas></div>
-                    <div class="chart-box"><h5>Human vs AI Ratio</h5><canvas id="ratioPieChart"></canvas></div>
+                <div id="analytics_inner_content">
+                    <div class="analytics-header">
+                        <h2 id="modal_dynamic_title">📊 Workspace Metrics</h2>
+                        <button style="background:#23283d; border:none; color:#fff; padding:6px 12px; border-radius:4px; cursor:pointer;" onclick="closeAnalyticsDashboard()">Close ✕</button>
+                    </div>
+                    <div id="analytics_graphics_pane">
+                        <div class="metrics-grid">
+                            <div class="metric-card"><h4>Total Users</h4><p id="stat_users">0</p></div>
+                            <div class="metric-card"><h4>Messages</h4><p id="stat_messages">0</p></div>
+                            <div class="metric-card"><h4>AI Answers</h4><p id="stat_ai">0</p></div>
+                        </div>
+                        <div class="charts-container">
+                            <div class="chart-box"><h5>Room Traffic</h5><canvas id="channelBarChart"></canvas></div>
+                            <div class="chart-box"><h5>Human vs AI Ratio</h5><canvas id="ratioPieChart"></canvas></div>
+                        </div>
+                    </div>
+                    <div id="bookmarks_listing_pane" style="display:none; flex-direction:column; gap:12px;"></div>
                 </div>
             </div>
 
             <div class="chat-header">
                 <div class="chat-target-info"><h3 id="chat_title"># General</h3></div>
+                
+                <div class="search-wrapper">
+                    <i class="fa-solid fa-magnifying-glass search-icon-anchor"></i>
+                    <input type="text" id="live_message_search" class="search-bar-input" placeholder="Search logs or solutions..." oninput="triggerLiveMessageSearchFilter()">
+                </div>
             </div>
 
             <div class="messages-container" id="messages_container"></div>
-            <div class="typing-indicator" id="ai_typing_state"><i class="fa-solid fa-circle-notch fa-spin"></i> Gemini Optimizer parsing code structural logs...</div>
+            <div class="typing-indicator" id="ai_typing_state"><i class="fa-solid fa-circle-notch fa-spin"></i> Gemini workspace pipeline crunching data variables...</div>
 
             <div class="input-panel">
                 <div class="preview-box" id="preview_box">
-                    <div class="preview-content"><i id="preview_icon" class="fa-solid fa-file"></i> <span id="preview_filename">file.txt</span><button class="remove-preview-btn" onclick="clearFilePreview()">×</button></div>
+                    <div class="preview-content">
+                        <i id="preview_icon" class="fa-solid fa-file"></i> 
+                        <span id="preview_filename">file.txt</span>
+                        <button class="remove-preview-btn" onclick="clearFilePreview()">×</button>
+                    </div>
                 </div>
                 <div class="input-container">
                     <button class="attach-btn" onclick="document.getElementById('file_uploader').click()"><i class="fa-solid fa-paperclip"></i></button>
@@ -494,14 +195,12 @@
             </div>
         </div>
 
-        <!-- NEW COLLABORATIVE EDITOR PANEL -->
         <div class="editor-side-panel">
             <div class="editor-header">
                 <h3><i class="fa-solid fa-code" style="color:#a855f7;"></i> Collaborative Sandbox</h3>
-                <button class="ai-optimize-btn" onclick="triggerAiCodeOptimization()"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Optimize</button>
+                <button class="ai-optimize-btn" style="background:linear-gradient(135deg, #a855f7 0%, #ec4899 100%); color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:11px; cursor:pointer;" onclick="triggerAiCodeOptimization()"><i class="fa-solid fa-wand-magic-sparkles"></i> Optimize</button>
             </div>
-            <!-- Text area hook triggers socket broadcast dynamically on input -->
-            <textarea id="shared_code_sandbox" class="editor-textarea" placeholder="// Paste code here and work with friends live..." oninput="broadcastCodeTyping()"></textarea>
+            <textarea id="shared_code_sandbox" class="editor-textarea" placeholder="// Paste code here..." oninput="broadcastCodeTyping()"></textarea>
         </div>
 
     </div>
@@ -511,16 +210,14 @@
         let currentRoomType = 'public';
         let currentTargetId = '1'; 
         let currentTargetUsername = '';
-        
-        let globalFilePayload = null;
-        let globalFileName = '';
-        let globalFileType = '';
         let barChartInstance = null;
         let pieChartInstance = null;
 
-        socket.on('connect', () => {
-            switchTarget(currentRoomType, currentTargetId, 'General');
-        });
+        let globalFilePayload = null;
+        let globalFileName = '';
+        let globalFileType = '';
+
+        socket.on('connect', () => { switchTarget(currentRoomType, currentTargetId, 'General'); });
 
         socket.on('user_presence_change', (data) => {
             const dot = document.getElementById(`status-dot-${data.user_id}`);
@@ -530,43 +227,88 @@
             }
         });
 
-        // Sync local pad content state when other users edit text fields
-        socket.on('code_type_sync', (data) => {
-            document.getElementById('shared_code_sandbox').value = data.text;
-        });
-
-        // Initial fetch call update when transitioning channel rooms
-        socket.on('sync_editor_pad', (data) => {
-            document.getElementById('shared_code_sandbox').value = data.text;
-        });
-
-        socket.on('refresh_analytics_trigger', () => {
-            if(document.getElementById('analytics_panel').style.display === 'block') loadAndRenderAnalyticsData();
-        });
+        socket.on('code_type_sync', (data) => { document.getElementById('shared_code_sandbox').value = data.text; });
+        socket.on('sync_editor_pad', (data) => { document.getElementById('shared_code_sandbox').value = data.text; });
+        socket.on('refresh_analytics_trigger', () => { if(document.getElementById('analytics_panel').style.display === 'block' && document.getElementById('analytics_graphics_pane').style.display !== 'none') loadAndRenderAnalyticsData(); });
 
         function broadcastCodeTyping() {
-            const currentCodeText = document.getElementById('shared_code_sandbox').value;
-            socket.emit('code_type_sync', {
-                room_type: currentRoomType,
-                target_id: currentTargetId,
-                text: currentCodeText
-            });
+            socket.emit('code_type_sync', { room_type: currentRoomType, target_id: currentTargetId, text: document.getElementById('shared_code_sandbox').value });
         }
 
         function triggerAiCodeOptimization() {
-            const codeContent = document.getElementById('shared_code_sandbox').value;
-            if(!codeContent.strip) {
-                const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                socket.emit('ai_optimize_code', {
-                    room_type: currentRoomType,
-                    target_id: currentTargetId,
-                    text: codeContent,
-                    time: timeStr
-                });
+            const code = document.getElementById('shared_code_sandbox').value;
+            if(code.trim()) {
+                socket.emit('ai_optimize_code', { room_type: currentRoomType, target_id: currentTargetId, text: code, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
             }
         }
 
+        function triggerLiveMessageSearchFilter() {
+            const searchTerm = document.getElementById('live_message_search').value.toLowerCase().trim();
+            const messageRows = document.querySelectorAll('#messages_container .message-row');
+            
+            messageRows.forEach(row => {
+                const bubbleText = row.querySelector('.message-bubble').innerText.toLowerCase();
+                const metaText = row.querySelector('.message-meta').innerText.toLowerCase();
+                
+                if (bubbleText.includes(searchTerm) || metaText.includes(searchTerm)) {
+                    row.style.display = 'flex';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        function toggleMessageBookmark(msgId, btnElement) {
+            fetch('/api/bookmarks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message_id: msgId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'bookmarked') {
+                    btnElement.classList.add('active');
+                } else {
+                    btnElement.classList.remove('active');
+                }
+            });
+        }
+
+        function openBookmarksView() {
+            document.getElementById('modal_dynamic_title').innerText = "⭐ Pinned Workspace Bookmarks";
+            document.getElementById('analytics_graphics_pane').style.display = 'none';
+            const pane = document.getElementById('bookmarks_listing_pane');
+            pane.innerHTML = '<p style="color:#64748b; font-size:13px;">Loading stream nodes...</p>';
+            pane.style.display = 'flex';
+            document.getElementById('analytics_panel').style.display = 'block';
+
+            fetch('/api/bookmarks')
+                .then(res => res.json())
+                .then(data => {
+                    pane.innerHTML = '';
+                    if(data.length === 0) {
+                        pane.innerHTML = '<p style="color:#64748b; font-size:14px; text-align:center; padding:40px;">No bookmarked pins caught yet inside this profile state.</p>';
+                        return;
+                    }
+                    data.forEach(item => {
+                        const block = document.createElement('div');
+                        block.style.background = '#161925';
+                        block.style.padding = '14px';
+                        block.style.borderRadius = '6px';
+                        block.style.borderLeft = '4px solid #eab308';
+                        block.innerHTML = `
+                            <div style="font-size:11px; color:#64748b; margin-bottom:4px;">${item.username} • ${item.time}</div>
+                            <div style="font-size:14px; color:#e2e8f0; line-height:1.5;">${item.text}</div>
+                        `;
+                        pane.appendChild(block);
+                    });
+                });
+        }
+
         function openAnalyticsDashboard() {
+            document.getElementById('modal_dynamic_title').innerText = "📊 Workspace Metrics";
+            document.getElementById('bookmarks_listing_pane').style.display = 'none';
+            document.getElementById('analytics_graphics_pane').style.display = 'block';
             document.getElementById('analytics_panel').style.display = 'block';
             loadAndRenderAnalyticsData();
         }
@@ -574,54 +316,29 @@
         function closeAnalyticsDashboard() { document.getElementById('analytics_panel').style.display = 'none'; }
 
         function loadAndRenderAnalyticsData() {
-            fetch('/api/analytics')
-                .then(res => res.json())
-                .then(data => {
-                    document.getElementById('stat_users').innerText = data.total_users;
-                    document.getElementById('stat_messages').innerText = data.total_messages;
-                    document.getElementById('stat_ai').innerText = data.ai_queries;
-
-                    const ctxBar = document.getElementById('channelBarChart').getContext('2d');
-                    if(barChartInstance) barChartInstance.destroy();
-                    barChartInstance = new Chart(ctxBar, {
-                        type: 'bar',
-                        data: {
-                            labels: data.channels,
-                            datasets: [{ data: data.channel_counts, backgroundColor: '#4facfe', borderRadius: 4 }]
-                        },
-                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-                    });
-
-                    const ctxPie = document.getElementById('ratioPieChart').getContext('2d');
-                    if(pieChartInstance) pieChartInstance.destroy();
-                    pieChartInstance = new Chart(ctxPie, {
-                        type: 'pie',
-                        data: {
-                            labels: ['Human', 'AI'],
-                            datasets: [{ data: [data.human_messages, data.ai_queries], backgroundColor: ['#a855f7', '#10b981'] }]
-                        },
-                        options: { responsive: true, maintainAspectRatio: false }
-                    });
-                });
+            fetch('/api/analytics').then(res => res.json()).then(data => {
+                document.getElementById('stat_users').innerText = data.total_users;
+                document.getElementById('stat_messages').innerText = data.total_messages;
+                document.getElementById('stat_ai').innerText = data.ai_queries;
+                const ctxBar = document.getElementById('channelBarChart').getContext('2d');
+                if(barChartInstance) barChartInstance.destroy();
+                barChartInstance = new Chart(ctxBar, { type: 'bar', data: { labels: data.channels, datasets: [{ data: data.channel_counts, backgroundColor: '#4facfe' }] }, options: { responsive: true, maintainAspectRatio: false } });
+                const ctxPie = document.getElementById('ratioPieChart').getContext('2d');
+                if(pieChartInstance) pieChartInstance.destroy();
+                pieChartInstance = new Chart(ctxPie, { type: 'pie', data: { labels: ['Human', 'AI'], datasets: [{ data: [data.human_messages, data.ai_queries], backgroundColor: ['#a855f7', '#10b981'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+            });
         }
 
         function switchTarget(type, id, name) {
-            currentRoomType = type;
-            currentTargetId = id;
+            currentRoomType = type; currentTargetId = id;
             document.querySelectorAll('.selector-btn').forEach(btn => btn.classList.remove('active'));
             const activeBtn = document.getElementById(`btn-${type}-${id}`);
             if (activeBtn) activeBtn.classList.add('active');
-
             document.getElementById('chat_title').innerText = type === 'public' ? `# ${name}` : `🟢 ${name}`;
             if(type === 'private') currentTargetUsername = name;
-
+            document.getElementById('live_message_search').value = ''; 
             document.getElementById('messages_container').innerHTML = '';
-            socket.emit('join', {
-                username: "{{ username }}",
-                room_type: currentRoomType,
-                target_id: currentTargetId,
-                target_username: currentTargetUsername
-            });
+            socket.emit('join', { username: "{{ username }}", room_type: currentRoomType, target_id: currentTargetId, target_username: currentTargetUsername });
         }
 
         socket.on('load_history', (history) => {
@@ -637,25 +354,29 @@
             scrollToBottom();
         });
 
-        socket.on('ai_typing', (state) => {
-            if(state === 'start') {
-                document.getElementById('ai_typing_state').style.display = 'block';
-                scrollToBottom();
-            }
-        });
+        socket.on('ai_typing', (state) => { if(state === 'start') document.getElementById('ai_typing_state').style.display = 'block'; });
 
         function appendMessageBubble(data) {
             const container = document.getElementById('messages_container');
             const isSelf = data.username === "{{ username }}";
             const isAI = data.username.includes('AI');
-
             let rowClass = 'message-row';
             if (isSelf) rowClass += ' self';
             if (isAI) rowClass += ' ai';
 
             const row = document.createElement('div');
             row.className = rowClass;
-            row.innerHTML = `<div class="message-meta">${data.username} • ${data.time}</div><div class="message-bubble">${data.text}</div>`;
+            row.id = `msg-node-${data.id}`;
+
+            row.innerHTML = `
+                <div class="message-meta">${data.username} • ${data.time}</div>
+                <div class="message-bubble-wrapper">
+                    <div class="message-bubble">${data.text}</div>
+                    <button class="bookmark-star-toggle ${data.is_bookmarked ? 'active' : ''}" onclick="toggleMessageBookmark(${data.id}, this)">
+                        <i class="fa-solid fa-star"></i>
+                    </button>
+                </div>
+            `;
             container.appendChild(row);
         }
 
@@ -664,8 +385,8 @@
             if (file) {
                 globalFileName = file.name; globalFileType = file.type;
                 const reader = new FileReader();
-                reader.onload = function (event) {
-                    globalFilePayload = event.target.result;
+                reader.onload = function (event) { 
+                    globalFilePayload = event.target.result; 
                     const iconEl = document.getElementById('preview_icon');
                     iconEl.className = "fa-solid ";
                     if(globalFileType.startsWith('image/')) iconEl.classList.add('fa-file-image');
@@ -678,8 +399,9 @@
             }
         }
 
-        function clearFilePreview() {
-            globalFilePayload = null; document.getElementById('file_uploader').value = '';
+        function clearFilePreview() { 
+            globalFilePayload = null; 
+            document.getElementById('file_uploader').value = '';
             document.getElementById('preview_box').style.display = 'none';
         }
 
@@ -687,19 +409,15 @@
             const field = document.getElementById('input_field');
             const msgText = field.value.trim();
             if (!msgText && !globalFilePayload) return;
-            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-            socket.emit('message', {
-                username: "{{ username }}", text: msgText, file: globalFilePayload,
-                file_name: globalFileName, file_type: globalFileType, time: timeStr,
-                room_type: currentRoomType, target_id: currentTargetId
-            });
+            socket.emit('message', { username: "{{ username }}", text: msgText, file: globalFilePayload, file_name: globalFileName, file_type: globalFileType, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), room_type: currentRoomType, target_id: currentTargetId });
             field.value = ''; clearFilePreview();
         }
 
-        function scrollToBottom() {
-            const container = document.getElementById('messages_container');
-            container.scrollTop = container.scrollHeight;
+        function scrollToBottom() { 
+            const c = document.getElementById('messages_container'); 
+            if (c) {
+                c.scrollTop = c.scrollHeight; 
+            }
         }
     </script>
 </body>
