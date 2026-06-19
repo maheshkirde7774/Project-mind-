@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import base64
-from flask import Flask, render_template, redirect, url_for, request, flash
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -10,7 +10,7 @@ from google.genai import types
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mahesh_premium_secret_key_123'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading', max_http_buffer_size=10 * 1024 * 1024)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading', max_http_buffer_size=25 * 1024 * 1024)
 
 login_manager = LoginManager()
 login_manager.login_view = 'login'
@@ -18,35 +18,37 @@ login_manager.init_app(app)
 
 client = genai.Client()
 DATABASE_FILE = 'chat_history.db'
+session_user_map = {}
 
 class User(UserMixin):
-    def __init__(self, id, username):
+    def __init__(self, id, username, is_online=0):
         self.id = id
         self.username = username
+        self.is_online = is_online
 
 @login_manager.user_loader
 def load_user(user_id):
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
-    cursor.execute('SELECT id, username FROM users WHERE id = ?', (user_id,))
+    cursor.execute('SELECT id, username, is_online FROM users WHERE id = ?', (user_id,))
     row = cursor.fetchone()
     conn.close()
     if row:
-        return User(row[0], row[1])
+        return User(row[0], row[1], row[2])
     return None
 
-# ================= DATABASE INITIALIZATION & SCHEMA =================
 def init_db():
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
-    
-    # Users Table
-    cursor.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password TEXT NOT NULL)')
-    
-    # Public Channels Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            username TEXT NOT NULL UNIQUE, 
+            password TEXT NOT NULL,
+            is_online INTEGER DEFAULT 0
+        )
+    ''')
     cursor.execute('CREATE TABLE IF NOT EXISTS rooms (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE)')
-    
-    # Extended Messages Table (Supports Room Channels & Direct DMs)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -59,15 +61,12 @@ def init_db():
             FOREIGN KEY(receiver_id) REFERENCES users(id)
         )
     ''')
-    
-    # Default Default Public Channels
     try:
         cursor.execute("INSERT INTO rooms (name) VALUES ('General')")
         cursor.execute("INSERT INTO rooms (name) VALUES ('AI-Talks')")
         conn.commit()
     except sqlite3.IntegrityError:
         pass 
-    
     conn.close()
 
 def save_message(username, text, time, room_id=None, receiver_id=None):
@@ -78,24 +77,73 @@ def save_message(username, text, time, room_id=None, receiver_id=None):
     conn.commit()
     conn.close()
 
+def update_user_status(user_id, status_code):
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET is_online = ? WHERE id = ?', (status_code, user_id))
+    conn.commit()
+    conn.close()
+
 init_db()
 
-# ================= HTTP WEB ROUTES =================
+# ================= NEW ANALYTICS API ENDPOINT =================
+@app.route('/api/analytics')
+@login_required
+def get_analytics():
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    # 1. Quick counter aggregates
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total_users = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM messages")
+    total_messages = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM messages WHERE username = '🤖 AI Assistant'")
+    ai_messages = cursor.fetchone()[0]
+    
+    human_messages = total_messages - ai_messages
+    
+    # 2. Channel message breakdowns
+    cursor.execute("""
+        SELECT r.name, COUNT(m.id) FROM rooms r 
+        LEFT JOIN messages m ON r.id = m.room_id 
+        GROUP BY r.id
+    """)
+    channel_data = cursor.fetchall()
+    channels = [row[0] for row in channel_data]
+    channel_counts = [row[1] for row in channel_data]
+    
+    # 3. Direct messaging traffic count
+    cursor.execute("SELECT COUNT(*) FROM messages WHERE receiver_id IS NOT NULL")
+    private_dm_count = cursor.fetchone()[0]
+    
+    # Append private messaging log into charts seamlessly
+    channels.append("Private DMs")
+    channel_counts.append(private_dm_count)
+    
+    conn.close()
+    
+    return jsonify({
+        'total_users': total_users,
+        'total_messages': total_messages,
+        'ai_queries': ai_messages,
+        'human_messages': human_messages,
+        'channels': channels,
+        'channel_counts': channel_counts
+    })
+
 @app.route('/')
 @login_required
 def index():
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
-    
-    # Fetch all public rooms
     cursor.execute('SELECT id, name FROM rooms')
     all_rooms = [{'id': r[0], 'name': r[1]} for r in cursor.fetchall()]
-    
-    # Fetch all registered users for DMs sidebar panel
-    cursor.execute('SELECT id, username FROM users WHERE username != ?', (current_user.username,))
-    all_users = [{'id': r[0], 'username': r[1]} for r in cursor.fetchall()]
+    cursor.execute('SELECT id, username, is_online FROM users WHERE username != ?', (current_user.username,))
+    all_users = [{'id': r[0], 'username': r[1], 'is_online': r[2]} for r in cursor.fetchall()]
     conn.close()
-    
     return render_template('index.html', username=current_user.username, rooms=all_rooms, users=all_users)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -125,7 +173,7 @@ def signup():
         try:
             conn = sqlite3.connect(DATABASE_FILE)
             cursor = conn.cursor()
-            cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, generate_password_hash(password, method='scrypt')))
+            cursor.execute('INSERT INTO users (username, password, is_online) VALUES (?, ?, 0)', (username, generate_password_hash(password, method='scrypt')))
             conn.commit()
             conn.close()
             flash('Account created successfully! Please login.')
@@ -137,38 +185,47 @@ def signup():
 @app.route('/logout')
 @login_required
 def logout():
+    update_user_status(current_user.id, 0)
     logout_user()
     return redirect(url_for('login'))
 
 # ================= REAL-TIME SOCKET WORKFLOWS =================
+@socketio.on('connect')
+def handle_socket_connect():
+    if current_user.is_authenticated:
+        session_user_map[request.sid] = current_user.id
+        update_user_status(current_user.id, 1)
+        emit('user_presence_change', {'user_id': current_user.id, 'is_online': 1}, broadcast=True)
+
+@socketio.on('disconnect')
+def handle_socket_disconnect():
+    if request.sid in session_user_map:
+        user_id = session_user_map[request.sid]
+        del session_user_map[request.sid]
+        if user_id not in session_user_map.values():
+            update_user_status(user_id, 0)
+            emit('user_presence_change', {'user_id': user_id, 'is_online': 0}, broadcast=True)
+
 @socketio.on('join')
 def on_join(data):
-    username = data.get('username')
     room_type = data.get('room_type') 
     target_id = data.get('target_id') 
-    
-    # Generate unique signature room string
     if room_type == 'public':
         session_room = f"room_{target_id}"
     else:
-        # DM communication room format: dm_minId_maxId
         session_room = f"dm_{min(int(current_user.id), int(target_id))}_{max(int(current_user.id), int(target_id))}"
-    
     join_room(session_room)
     
-    # Fetch targeted stream logs history
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     if room_type == 'public':
         cursor.execute('SELECT username, text, time FROM messages WHERE room_id = ? ORDER BY id ASC', (target_id,))
     else:
-        # Direct Message explicit validation lookup selection filter
         cursor.execute('''
             SELECT username, text, time FROM messages 
             WHERE (username = ? AND receiver_id = ?) OR (username = ? AND receiver_id = ?) 
             ORDER BY id ASC
         ''', (current_user.username, target_id, data.get('target_username'), current_user.id))
-        
     rows = cursor.fetchall()
     conn.close()
     
@@ -180,7 +237,9 @@ def handle_message(data):
     username = data.get('username')
     message_text = data.get('text', '').strip()
     current_time = data.get('time', '')
-    image_data = data.get('image', None)
+    file_data = data.get('file', None)
+    file_name = data.get('file_name', '')
+    file_type = data.get('file_type', '')
     
     room_type = data.get('room_type', 'public')
     target_id = data.get('target_id')
@@ -191,41 +250,67 @@ def handle_message(data):
         session_room = f"dm_{min(int(current_user.id), int(target_id))}_{max(int(current_user.id), int(target_id))}"
     
     display_text = message_text
-    if image_data:
-        display_text = f'<div style="margin-bottom:8px;"><img src="{image_data}" style="max-width:200px; border-radius:8px; display:block;"/></div>' + message_text
+    
+    if file_data:
+        if file_type.startswith('image/'):
+            display_text = f'<div style="margin-bottom:8px;"><img src="{file_data}" style="max-width:200px; border-radius:8px; display:block;"/></div>' + message_text
+        else:
+            display_text = f'<div style="margin-bottom:8px; background:#2d3142; padding:10px; border-radius:6px; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-file-invoice" style="color:#38bdf8;"></i> <span style="font-size:13px; color:#e2e8f0;">{file_name}</span></div>' + message_text
     
     data['text'] = display_text
     
-    # DB Sync
     if room_type == 'public':
         save_message(username, display_text, current_time, room_id=target_id)
     else:
         save_message(username, display_text, current_time, receiver_id=target_id)
         
     emit('message', data, to=session_room)
+    # Broadcast global metrics update hook to instantly refresh active visual dashboards
+    emit('refresh_analytics_trigger', {}, broadcast=True)
     
-    # Multimodal Multimodal AI Pipeline Execution Engine
     if message_text.startswith('@ai'):
         user_query = message_text.replace('@ai', '').strip()
         emit('ai_typing', 'start', to=session_room)
         
         contents_payload = []
-        if image_data:
+        doc_text_extraction = ""
+        
+        if file_data:
             try:
-                header, encoded = image_data.split(",", 1)
+                header, encoded = file_data.split(",", 1)
                 mime_type = header.split(";")[0].split(":")[1]
-                image_bytes = base64.b64decode(encoded)
-                contents_payload.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type))
-            except Exception as e:
-                print(f"Image structural failure: {e}")
+                file_bytes = base64.b64decode(encoded)
                 
-        contents_payload.append(user_query if user_query else "Describe this image context details.")
+                if "wordprocessingml" in mime_type or file_name.endswith('.docx'):
+                    doc_text_extraction = f"\n[Attached Document Content Name: {file_name}]\n This is raw text from the file:\n" + file_bytes.decode('utf-8', errors='ignore')
+                elif "plain" in mime_type or file_name.endswith('.txt'):
+                    doc_text_extraction = f"\n[Attached Text Content Name: {file_name}]\n" + file_bytes.decode('utf-8', errors='ignore')
+                else:
+                    contents_payload.append(types.Part.from_bytes(data=file_bytes, mime_type=mime_type))
+            except Exception as e:
+                print(f"File extraction structural anomaly: {e}")
+        
+        system_instruction = (
+            "You are MIND AI Workspace Assistant. STRICT COMPLIANCE RULES:\n"
+            "1. NEVER output long, dense paragraphs. Users hate it.\n"
+            "2. Always structure the text beautifully using clear bold Headings (###), concise Bullet points (•), or numbered arrays.\n"
+            "3. If providing source segments or program logs, encapsulate them in clean Code blocks.\n"
+            "4. Maintain maximum scannability and professional brevity."
+        )
+        
+        base_prompt = user_query if user_query else "Analyze the attached file content carefully and summarize it."
+        final_prompt = f"{system_instruction}\n\nUser Prompt: {base_prompt} {doc_text_extraction}"
+        contents_payload.append(final_prompt)
         
         try:
-            response = client.models.generate_content(model='gemini-2.5-flash', contents=contents_payload)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash', 
+                contents=contents_payload
+            )
             ai_response_text = response.text
+            ai_response_text = ai_response_text.replace('\n', '<br>')
         except Exception as e:
-            ai_response_text = f"Sorry, I had an issue analyzing that request. Technical logs: {str(e)}"
+            ai_response_text = f"**Error Context Execution Block:**<br>• Unsupported or heavily encrypted content matrix.<br>• Logs: {str(e)}"
             
         ai_data = {'username': '🤖 AI Assistant', 'text': ai_response_text, 'time': current_time}
         
@@ -235,6 +320,8 @@ def handle_message(data):
             save_message('🤖 AI Assistant', ai_response_text, current_time, receiver_id=target_id)
             
         emit('message', ai_data, to=session_room)
+        # Broadcast secondary update after AI logs response stream
+        emit('refresh_analytics_trigger', {}, broadcast=True)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
